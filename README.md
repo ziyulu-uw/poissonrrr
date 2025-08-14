@@ -14,7 +14,7 @@ git clone https://github.com/ziyulu-uw/poissonrrr.git
 cd poissonrrr
 ```
 ### 2. Install
-p-RRR can be fitted on both CPU and GPU through PyTorch. To run the toy example here, GPU is not really necessary. 
+p-RRR can be fitted on both CPU and GPU through PyTorch. GPU is not necessary to run the toy example here.
 
 #### 2.1. CPU-only version
 - Using Conda (tested):
