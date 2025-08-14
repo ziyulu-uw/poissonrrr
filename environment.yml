@@ -1,0 +1,10 @@
+name: poissonrrr
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.10
+  - pytorch==2.0.0        # CPU build; see README for GPU instructions
+  - pip
+  - pip:
+      - -r requirements.txt
