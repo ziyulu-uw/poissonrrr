@@ -1,18 +1,23 @@
 import numpy as np
-from numpy import linalg as LA
 from numpy.linalg import inv
 import sklearn.metrics
-from sklearn.metrics import d2_tweedie_score
-from sklearn.metrics import mean_poisson_deviance
 
-class SeparateRRR:  # reduced rank regression with separate regularization parameters for each covariate
-
+class LinearRRR:
     def __init__(self, bias=True, rank='max', regList=[], zeromeanY=True, normstdY=True, verbose=False):
-        self.regList = regList  # regularization parameters, size should equal to the number of predictor classes
-        self.bias = bias  # if True, a column of ones will be added in front of the 1st column of X
-        self.rank = rank  # rank constraint on the coefficient matrix ('max' or int)
-        self.zeromeanY = zeromeanY  # if True, will subtract the mean of responses before fitting
-        self.normstdY = normstdY  # if True, will normalize the std of responses before fitting
+        """
+        Reduced rank regression with separate L2 regularization weights for each predictor.
+        :param bias: bool, whether to include a bias term.
+        :param rank: 'max' or int, rank constraint on the regression coefficient matrix. If 'max', rank will not be constrained.
+        :param regList: list of floats (optional). regList[i] specifies the L2 regularization weight applied to the i-th predictor. If empty, no L2 regularization will be used.
+        :param zeromeanY: bool, if True, will subtract the mean of responses before fitting
+        :param normstdY: bool, if True, will divide the responses by std before fitting
+        :param verbose: bool, if True, self.fit will return intermediate components of weight matrix.
+        """
+        self.regList = regList
+        self.bias = bias
+        self.rank = rank
+        self.zeromeanY = zeromeanY
+        self.normstdY = normstdY
         self.zeromeanXs = []  # if True, will subtract the mean of the corr. predictor before fitting
         self.normstdXs = []  # if True, will normalize the std of corr. predictor before fitting
         self.regs = None
@@ -25,11 +30,12 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
 
     def fit(self, Xs, Y, zeromeanXs, normstdXs):
         """
-        Fits the coefficient matrix
-
-        Xs: list of predictors (num_samples x num_features): n x p
-        Y: labels (num_samples x num_labels): n x q
-
+        Fits the regression coefficient matrix.
+        :param Xs: list of NumPy matrices, input to regression. Each matrix is one predictor; all matrices should have the same # of rows (i.e. same # of samples/observations).
+        :param Y: NumPy matrix, regression targets. Should have the same # of rows as each predictor in Xs.
+        :param zeromeanXs: binary list. If zeromeanXs[i]==1, subtract mean from the i-th predictor.
+        :param normstdXs: binary list. If normstdXs[i]==1, divide the i-th predictor by its std.
+        :return: if self.verbose is True, return intermediate components of weight matrix. Otherwise none.
         """
         assert (len(Xs) == len(self.regList)) or (len(self.regList) == 0), 'regularization shape mismatch'
 
@@ -87,11 +93,11 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
             cont_flag = 0
         assert cont_flag, 'invalid value found in data, cannnot proceed'
 
-        if self.bias:
+        if self.bias:  # add a column of ones for the bias term
             Xall = np.c_[np.ones([Xall.shape[0], 1]), Xall]
             if len(self.regList) > 0:
                 Lbda = np.diag(self.regs)
-                Lbda[0, 0] = 0
+                Lbda[0, 0] = 0  # do not apply regularization to bias
         else:
             if len(self.regList) > 0:
                 Lbda = np.diag(self.regs)
@@ -102,7 +108,7 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
         assert 0 <= self.rank <= max_rank, 'Rank out of possible range'
 
         if len(self.regList) > 0:
-            W_ols = inv(Xall.T @ Xall + Lbda) @ Xall.T @ Y  # ordinary least squares solution
+            W_ols = inv(Xall.T @ Xall + Lbda) @ Xall.T @ Y  # least squares solution
         else:
             W_ols = inv(Xall.T @ Xall) @ Xall.T @ Y  # no regularization
         _u, _s, vh = np.linalg.svd(Y.T @ Xall @ W_ols)
@@ -114,8 +120,11 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
 
     def predict(self, Xs, unnormY=False, weight=None):
         """
-        Predict (and un-normalize) Y from X based on the fitted model
-
+        Use model to make prediction.
+        :param Xs: list of NumPy matrices, list of predictors.
+        :param unnormY: bool, if True, unnormalize Y (i.e., multiple std and/or add mean back if self.zeromeanY and/or self.normstdY is True)
+        :param weight: NumPy matrix (optional). If not None, will predict with the provided weight. If None, use the current trained model.
+        :return: Ypred: predicted target matrix (NumPy matrix)
         """
         assert (self.weight is not None) or (weight is not None), 'fit the model before predicting or provide a weight matrix'
 
@@ -146,12 +155,28 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
 
         return Ypred
 
-    def evaluate(self, Xs, Y, Ypred=None, unnormY=False, weight=None, metrics=['mse']):  # Y: Txm
+    def evaluate(self, Xs, Y, Ypred=None, unnormY=False, weight=None, metrics=['mse']):
+        """
+        Evaluate model prediction.
+        :param Xs: list of NumPy matrices, list of predictors.
+        :param Y: NumPy matrix, prediction targets. Should have the same # of rows as each predictor in Xs.
+        :param Ypred: NumPy matrix (optional), predicted targets. If None, will call self.predict to generate prediction first.
+        :param unnormY: bool, if True, unnormalize Y (i.e., multiple std and/or add mean back if self.zeromeanY and/or self.normstdY is True)
+        :param weight: NumPy matrix (optional). If not None, will predict with the provided weight. If None, use the current trained model.
+        :param metrics: list of str, metrics used to evaluate prediction.
+                        Supported: 'mse' (mean squared error),
+                                   'd2' (fraction of Poisson deviance explained; negative values in Ypred will be set to 0),
+                                   'cc' (Pearson correlation coefficient),
+                                   'r2' (R squared).
+        :return: metrics_scores: dictionary of scores
+        """
         if Ypred is None:
             Ypred = self.predict(Xs, unnormY=unnormY, weight=weight)
 
         metrics_scores = {}
 
+        # filter out neurons whose spike train std is 0. These neurons typically have a spike train of all zeros.
+        # so it's neither interesting nor stable to compute scores like d2 and cc for them.
         Y_std = np.std(Y, axis=0)
         zerostdix = np.argwhere(Y_std == 0)
         validix = np.arange(Y.shape[1])
@@ -164,6 +189,7 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
             if m == 'mse':
                 metrics_scores['mse'] = sklearn.metrics.mean_squared_error(Y, Ypred)
             elif m == 'cc':
+                # filter out neurons whose predicted spike train has std=0. cc will throw error on them.
                 Ypred_std = np.std(Ypred, axis=0)
                 zerostdix = np.argwhere(Ypred_std == 0)
                 validix1 = np.arange(Ypred.shape[1])
@@ -183,17 +209,13 @@ class SeparateRRR:  # reduced rank regression with separate regularization param
             elif m == 'r2':
                 metrics_scores['r2weight'] = sklearn.metrics.r2_score(Y, Ypred, multioutput='variance_weighted')
                 metrics_scores['r2uniform'] = sklearn.metrics.r2_score(Y, Ypred, multioutput='uniform_average')
-            elif m == 'ev':
-                metrics_scores['evweight'] = sklearn.metrics.explained_variance_score(Y, Ypred, multioutput='variance_weighted')
-                metrics_scores['evuniform'] = sklearn.metrics.explained_variance_score(Y, Ypred, multioutput='uniform_average')
             elif m == 'd2':
-                Ypred_pos = np.clip(Ypred, a_min=0, a_max=None)
-
-                eps = np.spacing(1)
-                d2_all = np.array([d2_tweedie_score(Y[:, i], Ypred_pos[:, i] + eps, power=1) for i in validix])
+                Ypred_pos = np.clip(Ypred, a_min=0, a_max=None)  # prediction has to be positive to compute d2
+                eps = np.spacing(1)  # add small number to avoid 0
+                d2_all = np.array([sklearn.metrics.d2_tweedie_score(Y[:, i], Ypred_pos[:, i] + eps, power=1) for i in validix])
                 d2uniform = np.average(d2_all)
                 Y_null_pred = np.tile(np.mean(Y, axis=0), (Y.shape[0], 1))
-                null_poisson_deviance = np.array([mean_poisson_deviance(Y[:, i], Y_null_pred[:, i] + eps) for i in validix])
+                null_poisson_deviance = np.array([sklearn.metrics.mean_poisson_deviance(Y[:, i], Y_null_pred[:, i] + eps) for i in validix])
                 d2nullweight = np.average(d2_all, weights=null_poisson_deviance)
                 d2varweight = np.average(d2_all, weights=np.var(Y[:, validix], axis=0, ddof=1))
                 metrics_scores['d2uniform'] = d2uniform
