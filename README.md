@@ -1,4 +1,4 @@
-# Poisson reduced-rank regression
+# Poisson reduced-rank regression for modeling neural activity
 ## Overview
 `poisson_rrr.py` contains the implementation of the Poisson reduced-rank regression (p-RRR) used in the manuscript [Global and local origins of trial-to-trial spike count variability in visual cortex](https://www.biorxiv.org/content/10.1101/2025.08.08.669442v1). `linear_rrr.py` contains the implementation of the [linear reduced-rank regression (RRR)](https://andrewcharlesjones.github.io/journal/reduced-rank-regression.html) which has been used to analyze [continuous neural data](https://www.science.org/doi/10.1126/science.aav7893). `poissonrrr_demo.ipynb` compares the two models in a toy example with simulated spikes matrix. 
 
