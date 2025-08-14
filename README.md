@@ -13,7 +13,7 @@ cd poissonrrr
 ### 2. Install
 p-RRR can be fitted on both CPU and GPU through PyTorch. To run the toy example here, GPU is not really necessary. 
 
-#### 2.1. CPU version
+#### 2.1. CPU-only version
 - Using Conda (tested):
 ```
 conda env create -f environment.yml
