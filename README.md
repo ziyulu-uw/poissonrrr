@@ -28,7 +28,7 @@ pip install torch==2.0.0 --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 jupyter lab  # open jupyter lab to run poissonrrr_demo.ipynb
 ```
-#### 2.2. If running on GPU is desired, need to install GPU version of PyTorch separately outside requirements.txt. 
+#### 2.2. If running on GPU is desired, need to install GPU version of PyTorch separately outside of requirements.txt. 
 
 Example commands for Conda:
 ```
