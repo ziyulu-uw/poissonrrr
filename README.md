@@ -48,3 +48,6 @@ pip install -r requirements.txt
 
 jupyter lab
 ```
+
+## Try the demo in Google Colab
+[![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/drive/1m6OCDa16V26dK6IOPLQIWRMfdS7KAHdu)
